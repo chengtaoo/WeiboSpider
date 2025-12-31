@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微博搜索系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 20px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+        .tweet-item {
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            transition: transform 0.2s;
+        }
+        .tweet-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .tweet-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .tweet-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        .tweet-content {
+            color: #333;
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+        .tweet-meta {
+            color: #666;
+            font-size: 0.9em;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .tweet-meta span {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.85em;
+        }
+        .status-running {
+            background: #ffc107;
+            color: #000;
+        }
+        .status-completed {
+            background: #28a745;
+            color: white;
+        }
+        .status-error {
+            background: #dc3545;
+            color: white;
+        }
+        .loading-spinner {
+            display: none;
+        }
+        .loading-spinner.active {
+            display: inline-block;
+        }
+        .pic-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .pic-grid img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .modal-img {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container main-container">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="mb-0"><i class="bi bi-search"></i> 微博搜索系统</h2>
+            </div>
+            <div class="card-body">
+                <!-- 搜索表单 -->
+                <form id="searchForm">
+                    <div class="mb-3">
+                        <label for="keyword" class="form-label">搜索关键词</label>
+                        <input type="text" class="form-control" id="keyword" placeholder="请输入要搜索的关键词" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="start_time" class="form-label">开始时间</label>
+                            <input type="datetime-local" class="form-control" id="start_time" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="end_time" class="form-label">结束时间</label>
+                            <input type="datetime-local" class="form-control" id="end_time" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="is_split_by_hour">
+                        <label class="form-check-label" for="is_split_by_hour">
+                            按小时切分（适用于热门关键词，数据量更大但速度较慢）
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                        <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                        <i class="bi bi-search"></i> 开始搜索
+                    </button>
+                </form>
+                
+                <!-- Cookie配置 -->
+                <div class="mt-4">
+                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#cookieConfig">
+                        <i class="bi bi-gear"></i> Cookie配置
+                    </button>
+                    <div class="collapse mt-3" id="cookieConfig">
+                        <div class="card card-body">
+                            <label for="cookieInput" class="form-label">Cookie值</label>
+                            <textarea class="form-control" id="cookieInput" rows="3" placeholder="请从浏览器开发者工具中复制Cookie值"></textarea>
+                            <button class="btn btn-primary mt-2" onclick="saveCookie()">
+                                <i class="bi bi-save"></i> 保存Cookie
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 搜索结果 -->
+        <div class="card" id="resultsCard" style="display: none;">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="bi bi-list-ul"></i> 搜索结果
+                        <span class="status-badge ms-2" id="statusBadge"></span>
+                    </h4>
+                    <button class="btn btn-danger btn-sm" id="stopButton" onclick="stopSearch()" style="display: none;">
+                        <i class="bi bi-stop-circle"></i> 停止搜索
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="statusInfo" class="mb-3"></div>
+                
+                <!-- 日志显示区域 -->
+                <div class="mb-3" id="logsContainer" style="display: none;">
+                    <button class="btn btn-outline-secondary btn-sm mb-2" type="button" data-bs-toggle="collapse" data-bs-target="#logsPanel">
+                        <i class="bi bi-file-text"></i> 查看运行日志
+                    </button>
+                    <div class="collapse" id="logsPanel">
+                        <div class="card card-body bg-dark text-light" style="max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85em;">
+                            <div id="logsContent"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="resultsContainer"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 图片预览模态框 -->
+    <div class="modal fade" id="imageModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">图片预览</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="modalImage" class="modal-img" src="" alt="预览">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentTaskId = null;
+        let statusInterval = null;
+        
+        // 设置默认时间（最近一个月）
+        window.addEventListener('DOMContentLoaded', function() {
+            const now = new Date();
+            const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            
+            document.getElementById('end_time').value = now.toISOString().slice(0, 16);
+            document.getElementById('start_time').value = oneMonthAgo.toISOString().slice(0, 16);
+            
+            // 加载已保存的Cookie
+            loadCookie();
+        });
+        
+        // 搜索表单提交
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            startSearch();
+        });
+        
+        // 开始搜索
+        function startSearch() {
+            const keyword = document.getElementById('keyword').value.trim();
+            const startTime = document.getElementById('start_time').value;
+            const endTime = document.getElementById('end_time').value;
+            const isSplitByHour = document.getElementById('is_split_by_hour').checked;
+            
+            if (!keyword) {
+                alert('请输入关键词');
+                return;
+            }
+            
+            // 显示加载状态
+            document.querySelector('.loading-spinner').classList.add('active');
+            document.querySelector('button[type="submit"]').disabled = true;
+            
+            // 发送搜索请求
+            fetch('/api/search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    keyword: keyword,
+                    start_time: startTime.replace('T', ' '),
+                    end_time: endTime.replace('T', ' '),
+                    is_split_by_hour: isSplitByHour
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentTaskId = data.task_id;
+                    document.getElementById('resultsCard').style.display = 'block';
+                    startPolling(data.task_id);
+                } else {
+                    alert('搜索失败: ' + data.error);
+                    document.querySelector('.loading-spinner').classList.remove('active');
+                    document.querySelector('button[type="submit"]').disabled = false;
+                }
+            })
+            .catch(error => {
+                alert('请求失败: ' + error);
+                document.querySelector('.loading-spinner').classList.remove('active');
+                document.querySelector('button[type="submit"]').disabled = false;
+            });
+        }
+        
+        // 轮询状态
+        function startPolling(taskId) {
+            if (statusInterval) {
+                clearInterval(statusInterval);
+            }
+            
+            statusInterval = setInterval(() => {
+                fetch(`/api/status/${taskId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        updateStatus(data);
+                        if (data.status === 'completed' || data.status === 'error' || data.status === 'stopped') {
+                            clearInterval(statusInterval);
+                            document.querySelector('.loading-spinner').classList.remove('active');
+                            document.querySelector('button[type="submit"]').disabled = false;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取状态失败:', error);
+                    });
+            }, 2000); // 每2秒轮询一次
+        }
+        
+        // 更新状态和结果
+        function updateStatus(data) {
+            const statusBadge = document.getElementById('statusBadge');
+            const statusInfo = document.getElementById('statusInfo');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const stopButton = document.getElementById('stopButton');
+            const logsContainer = document.getElementById('logsContainer');
+            const logsContent = document.getElementById('logsContent');
+            
+            // 更新状态徽章
+            statusBadge.className = 'status-badge status-' + data.status;
+            if (data.status === 'running' || data.status === 'stopping') {
+                statusBadge.textContent = data.status === 'stopping' ? '正在停止...' : '搜索中...';
+                stopButton.style.display = 'block';
+            } else {
+                statusBadge.textContent = data.status === 'completed' ? '搜索完成' : 
+                                         data.status === 'stopped' ? '已停止' : '搜索失败';
+                stopButton.style.display = 'none';
+            }
+            
+            // 更新状态信息
+            if (data.status === 'running') {
+                statusInfo.innerHTML = `<div class="alert alert-info">
+                    <i class="bi bi-hourglass-split"></i> 正在搜索，已找到 <strong>${data.count || 0}</strong> 条结果...
+                </div>`;
+            } else if (data.status === 'stopping') {
+                statusInfo.innerHTML = `<div class="alert alert-warning">
+                    <i class="bi bi-pause-circle"></i> 正在停止搜索...
+                </div>`;
+            } else if (data.status === 'stopped') {
+                statusInfo.innerHTML = `<div class="alert alert-warning">
+                    <i class="bi bi-stop-circle"></i> 搜索已停止，共找到 <strong>${data.count || 0}</strong> 条结果
+                </div>`;
+            } else if (data.status === 'completed') {
+                statusInfo.innerHTML = `<div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i> 搜索完成，共找到 <strong>${data.count || 0}</strong> 条结果
+                </div>`;
+            } else if (data.status === 'error') {
+                statusInfo.innerHTML = `<div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> 搜索失败: ${data.error || '未知错误'}
+                </div>`;
+            }
+            
+            // 更新日志
+            if (data.logs && data.logs.length > 0) {
+                logsContainer.style.display = 'block';
+                logsContent.innerHTML = data.logs.map(log => 
+                    `<div>[${log.time}] ${escapeHtml(log.message)}</div>`
+                ).join('');
+                // 自动滚动到底部
+                const logsPanel = document.getElementById('logsPanel');
+                if (logsPanel.classList.contains('show')) {
+                    logsContent.scrollTop = logsContent.scrollHeight;
+                }
+            }
+            
+            // 显示结果
+            if (data.results && data.results.length > 0) {
+                resultsContainer.innerHTML = data.results.map(tweet => renderTweet(tweet)).join('');
+            }
+        }
+        
+        // 停止搜索
+        function stopSearch() {
+            if (!currentTaskId) return;
+            
+            if (confirm('确定要停止当前搜索吗？')) {
+                fetch(`/api/stop/${currentTaskId}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('stopButton').style.display = 'none';
+                    } else {
+                        alert('停止失败: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('请求失败: ' + error);
+                });
+            }
+        }
+        
+        // 渲染单条推文
+        function renderTweet(tweet) {
+            const time = new Date(tweet.created_at).toLocaleString('zh-CN');
+            const pics = tweet.pic_urls || [];
+            const picsHtml = pics.length > 0 ? `
+                <div class="pic-grid">
+                    ${pics.map((pic, idx) => `
+                        <img src="${pic}" alt="图片${idx+1}" onclick="showImage('${pic}')">
+                    `).join('')}
+                </div>
+            ` : '';
+            
+            return `
+                <div class="tweet-item">
+                    <div class="tweet-header">
+                        <img src="${tweet.user.avatar_hd || ''}" class="tweet-avatar" onerror="this.src='https://via.placeholder.com/50'">
+                        <div>
+                            <strong>${tweet.user.nick_name || '未知用户'}</strong>
+                            ${tweet.user.verified ? '<span class="badge bg-primary ms-2">认证</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="tweet-content">${escapeHtml(tweet.content || '')}</div>
+                    ${picsHtml}
+                    <div class="tweet-meta">
+                        <span><i class="bi bi-clock"></i> ${time}</span>
+                        <span><i class="bi bi-geo-alt"></i> ${tweet.ip_location || '未知'}</span>
+                        <span><i class="bi bi-arrow-repeat"></i> 转发 ${tweet.reposts_count || 0}</span>
+                        <span><i class="bi bi-chat"></i> 评论 ${tweet.comments_count || 0}</span>
+                        <span><i class="bi bi-heart"></i> 点赞 ${tweet.attitudes_count || 0}</span>
+                        ${tweet.url ? `<span><a href="${tweet.url}" target="_blank"><i class="bi bi-box-arrow-up-right"></i> 查看原文</a></span>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // HTML转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 显示图片
+        function showImage(src) {
+            document.getElementById('modalImage').src = src;
+            new bootstrap.Modal(document.getElementById('imageModal')).show();
+        }
+        
+        // 保存Cookie
+        function saveCookie() {
+            const cookie = document.getElementById('cookieInput').value.trim();
+            
+            fetch('/api/cookie', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ cookie: cookie })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Cookie保存成功！');
+                } else {
+                    alert('保存失败: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('请求失败: ' + error);
+            });
+        }
+        
+        // 加载Cookie
+        function loadCookie() {
+            fetch('/api/cookie')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.cookie) {
+                        document.getElementById('cookieInput').value = data.cookie;
+                    }
+                })
+                .catch(error => {
+                    console.error('加载Cookie失败:', error);
+                });
+        }
+    </script>
+</body>
+</html>
+

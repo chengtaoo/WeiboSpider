@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# 日志文件
+*.log
+spider.log
+
+# 调试文件
+debug_*.html
+debug_*.json
+debug_*.txt
+
+# 输出文件
+output/*.jsonl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 环境变量
+.env
+.venv
+venv/
+ENV/
+
+# Cookie文件（包含敏感信息，但可能需要保留模板）
+# weibospider/cookie.txt
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# Flask
+instance/
+.webassets-cache
+

@@ -23,12 +23,13 @@ class TweetSpiderByKeyword(Spider):
         爬虫入口
         """
         # 这里keywords可替换成实际待采集的数据
-        keywords = ['丽江']
+        keywords = ['两个退伍军人被冤枉陷害']
         # 这里的时间可替换成实际需要的时间段
-        start_time = datetime.datetime(year=2022, month=10, day=1, hour=0)
-        end_time = datetime.datetime(year=2022, month=10, day=7, hour=23)
+        # 设置为最近一年的时间范围，您可以根据需要修改
+        end_time = datetime.datetime.now()
+        start_time = end_time - datetime.timedelta(days=365)  # 最近一年
         # 是否按照小时进行切分，数据量更大; 对于非热门关键词**不需要**按照小时切分
-        is_split_by_hour = True
+        is_split_by_hour = False  # 非热门关键词建议设为False，提高效率
         for keyword in keywords:
             if not is_split_by_hour:
                 _start_time = start_time.strftime("%Y-%m-%d-%H")

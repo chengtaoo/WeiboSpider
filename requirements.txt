@@ -3,3 +3,5 @@ python_dateutil
 cryptography==36.0.2
 pyOpenSSL==22.0.0
 Twisted==22.10.0
+Flask==2.3.3
+requests==2.31.0
