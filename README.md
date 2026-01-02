@@ -409,3 +409,115 @@ python run_spider.py tweet_by_keyword
 ## 其他工作
 
 - 已构建超大规模数据集WeiboCOV，可免费申请，包含2千万微博活跃用户以及6千万推文数据，参见[这里](https://github.com/nghuyong/weibo-public-opinion-datasets)
+
+## Web API 服务
+
+本项目提供了一个基于 Flask 的 Web 服务，可通过 HTTP API 控制爬虫和获取数据。
+
+### 启动服务
+
+```bash
+python app.py
+```
+
+服务启动后默认监听 `http://localhost:5000`。
+
+### API 接口文档
+
+#### 1. 配置 Cookie
+
+在使用爬虫功能前，必须先配置有效的微博 Cookie。
+
+- **接口地址**: `/api/config/cookie`
+- **请求方式**: `POST`
+- **请求参数**:
+  ```json
+  {
+      "cookie": "YOUR_WEIBO_COOKIE_STRING"
+  }
+  ```
+- **响应示例**:
+  ```json
+  {
+      "success": true,
+      "message": "Cookie保存成功"
+  }
+  ```
+
+#### 2. 创建关键词搜索任务
+
+后台异步运行关键词搜索爬虫。
+
+- **接口地址**: `/api/spider/search`
+- **请求方式**: `POST`
+- **请求参数**:
+  ```json
+  {
+      "keyword": "搜索关键词",
+      "start_time": "2023-01-01 00:00",
+      "end_time": "2023-01-02 00:00",
+      "is_split_by_hour": false
+  }
+  ```
+- **响应示例**:
+  ```json
+  {
+      "success": true,
+      "task_id": "task_1672531200000"
+  }
+  ```
+
+#### 3. 获取任务状态和结果
+
+查询指定任务的运行状态、进度和抓取结果。
+
+- **接口地址**: `/api/spider/tasks/<task_id>`
+- **请求方式**: `GET`
+- **响应示例**:
+  ```json
+  {
+      "status": "running",
+      "count": 10,
+      "logs": [...],
+      "results": [...]
+  }
+  ```
+  状态(`status`)可能的值: `running`, `completed`, `stopped`, `error`.
+
+#### 4. 停止任务
+
+停止正在运行的任务。
+
+- **接口地址**: `/api/spider/tasks/<task_id>/stop`
+- **请求方式**: `POST`
+- **响应示例**:
+  ```json
+  {
+      "success": true,
+      "message": "停止请求已发送"
+  }
+  ```
+
+#### 5. 获取用户信息
+
+直接获取指定用户的详细信息。
+
+- **接口地址**: `/api/spider/user/<user_id>`
+- **请求方式**: `GET`
+- **响应示例**:
+  ```json
+  {
+      "success": true,
+      "data": {
+          "_id": "1234567890",
+          "nick_name": "用户昵称",
+          ...
+      }
+  }
+  ```
+
+#### 6. API 说明
+
+- **接口地址**: `/api/docs`
+- **请求方式**: `GET`
+- **说明**: 获取 API 接口列表说明。

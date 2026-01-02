@@ -141,7 +141,15 @@ class WeiboSpiderService:
                     tweet_ids = [tid[1] for tid in all_matches]  # 提取推文ID（第二个捕获组）
                     # 去重
                     tweet_ids = list(set(tweet_ids))
-                    logger.info(f"使用方法2（全HTML搜索）找到 {len(tweet_ids)} 个推文ID")
+                    if tweet_ids:
+                        logger.info(f"使用方法2（全HTML搜索）找到 {len(tweet_ids)} 个推文ID")
+                
+                # 方法3: 尝试匹配 mid 属性 (如 mid="4829255386537989") - 针对新版页面结构
+                if not tweet_ids:
+                    mid_matches = re.findall(r'mid="(\d+)"', html)
+                    if mid_matches:
+                        tweet_ids = list(set(mid_matches))
+                        logger.info(f"使用方法3（mid属性）找到 {len(tweet_ids)} 个推文ID")
                 
                 # 如果还是没找到，记录警告
                 if not tweet_ids:
@@ -204,7 +212,16 @@ class WeiboSpiderService:
                 logger.warning(f"获取推文详情失败，状态码: {response.status_code}, URL: {url}")
                 return None
             
-            data = json.loads(response.text)
+            # 调试：检查响应内容是否为JSON
+            try:
+                content = response.text
+                if not content.strip().startswith('{'):
+                    logger.warning(f"推文详情响应内容不是JSON格式，可能Cookie已失效或触发验证。内容摘要: {content[:200]}")
+                    return None
+                data = json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON解析失败: {e}, 内容摘要: {response.text[:200]}")
+                return None
             
             # 检查返回数据 - API返回的数据直接在顶层，没有嵌套的data字段
             if 'ok' in data and data['ok'] != 1:
@@ -243,5 +260,81 @@ class WeiboSpiderService:
             return None
         except Exception as e:
             logger.error(f"获取推文详情异常 {tweet_id}: {e}", exc_info=True)
+            return None
+
+    def get_user_info(self, user_id):
+        """
+        获取用户信息
+        
+        Args:
+            user_id: 用户ID
+            
+        Returns:
+            dict: 用户信息字典
+        """
+        try:
+            logger.info(f"开始获取用户信息: {user_id}")
+            
+            # 1. 获取基本信息
+            url = f"https://weibo.com/ajax/profile/info?uid={user_id}"
+            response = self.session.get(url, timeout=15)
+            response.encoding = 'utf-8'
+            
+            if response.status_code != 200:
+                logger.warning(f"获取用户信息失败，状态码: {response.status_code}, URL: {url}")
+                return None
+            
+            # 调试：检查响应内容是否为JSON
+            try:
+                content = response.text
+                if not content.strip().startswith('{'):
+                    logger.warning(f"响应内容不是JSON格式，可能Cookie已失效或触发验证。内容摘要: {content[:200]}")
+                    return None
+                data = json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON解析失败: {e}, 内容摘要: {response.text[:200]}")
+                return None
+
+            if 'ok' in data and data['ok'] != 1:
+                logger.warning(f"API返回错误: {data.get('msg', 'unknown error')}, URL: {url}")
+                return None
+                
+            if 'data' not in data or 'user' not in data['data']:
+                logger.warning(f"返回数据格式异常: {url}")
+                return None
+                
+            from weibospider.spiders.common import parse_user_info
+            item = parse_user_info(data['data']['user'])
+            
+            # 2. 获取详细信息
+            detail_url = f"https://weibo.com/ajax/profile/detail?uid={user_id}"
+            detail_response = self.session.get(detail_url, timeout=15)
+            detail_response.encoding = 'utf-8'
+            
+            if detail_response.status_code == 200:
+                try:
+                    detail_data = json.loads(detail_response.text)
+                    if 'data' in detail_data:
+                        d_data = detail_data['data']
+                        item['birthday'] = d_data.get('birthday', '')
+                        if 'created_at' not in item:
+                            item['created_at'] = d_data.get('created_at', '')
+                        item['desc_text'] = d_data.get('desc_text', '')
+                        item['ip_location'] = d_data.get('ip_location', '')
+                        if 'sunshine_credit' in d_data:
+                            item['sunshine_credit'] = d_data.get('sunshine_credit', {}).get('level', '')
+                        item['label_desc'] = [label['name'] for label in d_data.get('label_desc', [])]
+                        if 'company' in d_data:
+                            item['company'] = d_data['company']
+                        if 'education' in d_data:
+                            item['education'] = d_data['education']
+                except Exception as e:
+                    logger.warning(f"解析用户详细信息失败: {e}")
+            
+            logger.info(f"获取用户信息成功: {item.get('nick_name', user_id)}")
+            return item
+            
+        except Exception as e:
+            logger.error(f"获取用户信息异常 {user_id}: {e}", exc_info=True)
             return None
 
